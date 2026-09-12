@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 import WebSocket from "ws";
 
 import type {
@@ -23,6 +21,22 @@ interface SignalingMessage {
     from: number;
     to: number;
     msg: string;
+  };
+}
+
+/** The role NVIDIA's signaling service uses for the WebRTC client peer. */
+export const GFN_WEBRTC_CLIENT_PEER_ROLE = 1;
+
+export function buildGfnWebRtcPeerInfo(peerId: number, peerName: string): Record<string, string | number | boolean> {
+  return {
+    browser: "Chrome",
+    browserVersion: "131",
+    connected: true,
+    id: peerId,
+    name: peerName,
+    peerRole: GFN_WEBRTC_CLIENT_PEER_ROLE,
+    resolution: "1920x1080",
+    version: 2,
   };
 }
 
@@ -54,7 +68,7 @@ export class GfnSignalingClient {
     signInUrl.search = "";
     signInUrl.searchParams.set("peer_id", this.peerName);
     signInUrl.searchParams.set("version", "2");
-    signInUrl.searchParams.set("peer_role", "1");
+    signInUrl.searchParams.set("peer_role", String(GFN_WEBRTC_CLIENT_PEER_ROLE));
     signInUrl.searchParams.set("pairing_id", this.sessionId);
 
     const url = signInUrl.toString();
@@ -103,16 +117,7 @@ export class GfnSignalingClient {
   private sendPeerInfo(): void {
     this.sendJson({
       ackid: this.nextAckId(),
-      peer_info: {
-        browser: "Chrome",
-        browserVersion: "131",
-        connected: true,
-        id: this.peerId,
-        name: this.peerName,
-        peerRole: 0,
-        resolution: "1920x1080",
-        version: 2,
-      },
+      peer_info: buildGfnWebRtcPeerInfo(this.peerId, this.peerName),
     });
   }
 
@@ -139,7 +144,6 @@ export class GfnSignalingClient {
           Host: urlHost,
           Origin: GFN_PLAY_ORIGIN,
           "User-Agent": GFN_USER_AGENT,
-          "Sec-WebSocket-Key": randomBytes(16).toString("base64"),
         },
       });
 
