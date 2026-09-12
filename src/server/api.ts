@@ -16,6 +16,18 @@ function asyncRoute(handler: (request: Request, response: Response) => Promise<v
   };
 }
 
+/**
+ * Prefer an explicitly selected CloudMatch endpoint for a new session.  The
+ * provider endpoint remains the fallback for clients that have not selected a
+ * region yet.
+ */
+export function resolveCreateStreamingBaseUrl(
+  requestedStreamingBaseUrl: string | undefined,
+  providerStreamingBaseUrl: string,
+): string {
+  return requestedStreamingBaseUrl?.trim() || providerStreamingBaseUrl;
+}
+
 export function registerApi(app: Express): void {
   app.get("/api/health", (_request, response) => {
     response.json({ ok: true, runtime: "web", streamer: "webrtc" });
@@ -158,12 +170,15 @@ export function registerApi(app: Express): void {
     );
     if (!appId) throw Object.assign(new Error("This game does not expose a launchable GFN app ID."), { statusCode: 400 });
 
-    const input = request.body as Omit<SessionCreateRequest, "token" | "appId" | "streamingBaseUrl">;
+    const input = request.body as Omit<SessionCreateRequest, "token" | "appId">;
     const session = await createSession({
       ...input,
       appId,
       token: auth.tokens.idToken ?? auth.tokens.accessToken,
-      streamingBaseUrl: auth.provider.streamingServiceUrl,
+      streamingBaseUrl: resolveCreateStreamingBaseUrl(
+        input.streamingBaseUrl,
+        auth.provider.streamingServiceUrl,
+      ),
       internalTitle: String(input.internalTitle || appId),
       settings: { ...input.settings, clientMode: "web", transportMode: "webrtc" },
     });
